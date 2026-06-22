@@ -11,21 +11,23 @@
 - Auto reconnect on RTSP drop proven
 - Society visited — CP Plus ~230 cameras
 - Vendor contact pending for RTSP credentials
+- All 4 priority fixes done, tested, committed, and pushed (ef0776f)
 
 ## Completed Today
-- Nothing yet this session
+- Fix 1: _save_clip() / alert-POST crash — wrapped in try/except, logs full traceback, never kills the detector
+- Fix 2: Dedup OCR noise — falls back to (camera_id, time_bucket) key when plate is empty/garbled
+- Fix 3: Speed sanity check — added configurable MAX_SPEED_KMH (default 80), anomalies logged not alerted
+- Fix 4: Wired up SAVE_INCIDENT_CLIP env var (was dead config, now actually gates clip saving)
+- All 4 verified with targeted tests, committed and pushed to main
 
 ## In Progress
-- Fix 1: Clip save crash (STARTING NOW)
+- Nothing right now — waiting to start Feature 1 (wrong way detection)
 
 ## Pending Fixes (in order)
-- Fix 1: _save_clip() crash — CRITICAL
-- Fix 2: Dedup OCR noise — HIGH
-- Fix 3: Speed sanity check — MEDIUM
-- Fix 4: Dead SAVE_INCIDENT_CLIP — LOW
+- None — all 4 done
 
 ## Pending Features (after fixes)
-- Wrong way detection
+- Wrong way detection (NEXT UP)
 - Daily status report
 - Real NVR RTSP testing
 
@@ -35,12 +37,13 @@
 - alert_api WhatsApp mock ✓
 - SQLite incident storage ✓
 - Docker Compose deployment ✓
+- detector/pipeline.py clip-save/alert-POST failures no longer crash the process ✓
+- alert_api/dedup.py suppresses repeats even with garbled/empty plate reads ✓
+- detector/speed_sensor.py caps absurd speeds via MAX_SPEED_KMH ✓
+- SAVE_INCIDENT_CLIP env var now actually controls clip saving ✓
 
 ## Known Issues
-- _save_clip() crash kills detector
-- Dedup fails on OCR noise
-- No speed sanity cap
-- SAVE_INCIDENT_CLIP dead config
+- None open from the original 4 — next known gap is the missing wrong-way detection logic in speed_sensor.py
 
 ## Environment
 - CP Plus NVR — Dahua OEM
