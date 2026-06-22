@@ -18,6 +18,8 @@ def main():
     calibration_metres = float(os.environ.get("CALIBRATION_METRES", "8.0"))
     line_a_ratio = float(os.environ.get("LINE_A_Y_RATIO", "0.35"))
     line_b_ratio = float(os.environ.get("LINE_B_Y_RATIO", "0.65"))
+    max_speed_kmh = float(os.environ.get("MAX_SPEED_KMH", "80"))
+    save_incident_clip = os.environ.get("SAVE_INCIDENT_CLIP", "true").strip().lower() in ("1", "true", "yes", "on")
     alert_url = os.environ.get("ALERT_API_URL", "http://alert-api:8090/api/v1/alert")
 
     log.info("Garuda detector starting | cam=%s source=%s limit=%s km/h", cam_id, source, speed_limit)
@@ -30,6 +32,8 @@ def main():
         line_a_ratio=line_a_ratio,
         line_b_ratio=line_b_ratio,
         alert_api_url=alert_url,
+        max_speed_kmh=max_speed_kmh,
+        save_incident_clip=save_incident_clip,
     )
 
     for frame, fps in capture.frames():

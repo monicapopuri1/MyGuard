@@ -28,15 +28,23 @@ class SpeedSensor:
     # Clear stale records after this many seconds (vehicle left frame without completing crossing)
     _STALE_TIMEOUT_S = 10.0
 
-    def __init__(self, frame_height: int, calibration_metres: float, line_a_ratio: float, line_b_ratio: float):
+    def __init__(
+        self,
+        frame_height: int,
+        calibration_metres: float,
+        line_a_ratio: float,
+        line_b_ratio: float,
+        max_speed_kmh: float = 80.0,
+    ):
         self.line_a_y = int(frame_height * line_a_ratio)
         self.line_b_y = int(frame_height * line_b_ratio)
         self.calibration_metres = calibration_metres
+        self.max_speed_kmh = max_speed_kmh
         self._records: dict[int, _CrossingRecord] = {}
         self._last_seen: dict[int, float] = {}
         log.info(
-            "Speed sensor calibrated | line_A_y=%d line_B_y=%d distance=%.1fm",
-            self.line_a_y, self.line_b_y, calibration_metres,
+            "Speed sensor calibrated | line_A_y=%d line_B_y=%d distance=%.1fm max_speed=%.1fkm/h",
+            self.line_a_y, self.line_b_y, calibration_metres, max_speed_kmh,
         )
 
     def update(self, vehicle_id: int, cx: int, cy: int) -> Optional[float]:
@@ -64,9 +72,18 @@ class SpeedSensor:
             if elapsed <= 0:
                 return None
             speed_kmh = (self.calibration_metres / elapsed) * 3.6
-            log.info("Vehicle %d speed=%.1f km/h (elapsed=%.2fs)", vehicle_id, speed_kmh, elapsed)
             # Reset so the same vehicle can be measured again if it comes back
             del self._records[vehicle_id]
+
+            if speed_kmh > self.max_speed_kmh:
+                log.warning(
+                    "Calibration anomaly: vehicle=%d speed=%.1f km/h exceeds MAX_SPEED_KMH=%.1f "
+                    "(elapsed=%.2fs) — check camera stability/line calibration, not alerting",
+                    vehicle_id, speed_kmh, self.max_speed_kmh, elapsed,
+                )
+                return None
+
+            log.info("Vehicle %d speed=%.1f km/h (elapsed=%.2fs)", vehicle_id, speed_kmh, elapsed)
             return speed_kmh
 
         return None

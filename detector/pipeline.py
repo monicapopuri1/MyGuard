@@ -42,10 +42,14 @@ class DetectionPipeline:
         line_a_ratio: float,
         line_b_ratio: float,
         alert_api_url: str,
+        max_speed_kmh: float = 80.0,
+        save_incident_clip: bool = True,
     ):
         self.cam_id = cam_id
         self.speed_limit_kmh = speed_limit_kmh
         self.alert_api_url = alert_api_url
+        self.max_speed_kmh = max_speed_kmh
+        self.save_incident_clip = save_incident_clip
 
         log.info("Loading YOLOv8n for vehicle detection...")
         # Downloads yolov8n.pt on first run (~6 MB); replace with a local path if offline.
@@ -65,7 +69,10 @@ class DetectionPipeline:
         h, w = frame.shape[:2]
 
         if self._sensor is None:
-            self._sensor = SpeedSensor(h, self._calibration_metres, self._line_a_ratio, self._line_b_ratio)
+            self._sensor = SpeedSensor(
+                h, self._calibration_metres, self._line_a_ratio, self._line_b_ratio,
+                max_speed_kmh=self.max_speed_kmh,
+            )
 
         # Maintain rolling frame buffer for clip saving
         self._clip_buffer.append(frame.copy())
@@ -110,9 +117,19 @@ class DetectionPipeline:
                 plate_text = self._anpr.read(vehicle_crop) if vehicle_crop.size > 0 else ""
 
                 snapshot_b64 = _encode_snapshot(frame)
-                clip_path = self._save_clip(fps)
 
-                self._post_alert(speed, plate_text, snapshot_b64, clip_path)
+                clip_path = ""
+                if self.save_incident_clip:
+                    try:
+                        clip_path = self._save_clip(fps)
+                    except Exception:
+                        log.exception("Clip save failed for vehicle=%d cam=%s — continuing without clip", vid, self.cam_id)
+                        clip_path = ""
+
+                try:
+                    self._post_alert(speed, plate_text, snapshot_b64, clip_path)
+                except Exception:
+                    log.exception("Alert POST raised unexpectedly for vehicle=%d cam=%s — continuing", vid, self.cam_id)
 
     def _save_clip(self, fps: float) -> str:
         ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
