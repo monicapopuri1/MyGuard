@@ -1,6 +1,6 @@
 # Garuda — Society Speed-Trap POD
 
-Garuda is an AetherEdge marketplace "Workforce Pod": a Docker Compose blueprint that turns a camera feed (CCTV/RTSP or file) into automated overspeeding detection with WhatsApp alerts to a society's security guard. This document captures the requirements, design, and everything validated/discovered while testing it.
+A POD for the AetherEdge Marketplace that does CCTV surveillance for apartment societies in Bangalore — starting with automated overspeeding detection. Garuda is an AetherEdge "Workforce Pod": a Docker Compose blueprint that turns a camera feed (CCTV/RTSP or file) into automated overspeeding detection with WhatsApp alerts to a society's security guard. This document captures the requirements, design, and everything validated/discovered while testing it.
 
 ---
 
