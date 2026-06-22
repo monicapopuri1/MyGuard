@@ -1,0 +1,87 @@
+version: "3.8"
+
+# ─────────────────────────────────────────────────────────────
+#  GARUDA — Society Speed-Trap POD
+#  AetherEdge Blueprint (Docker Compose)
+#
+#  Images are pulled from Docker Hub — no source code needed
+#  on the node. Run build_and_push.sh once to publish images.
+#
+#  To add more cameras: duplicate the detector-cam-01 service,
+#  increment the service name and set CAM_ID / CAM_RTSP_URL.
+# ─────────────────────────────────────────────────────────────
+
+services:
+
+  # ── Alert API (one instance, shared by all detector workers) ──
+  alert-api:
+    image: monicapopuri/garuda-alert:latest
+    container_name: garuda-alert-api
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+    env_file:
+      - .env
+    volumes:
+      - garuda-data:/data/incidents
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8090/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    labels:
+      aetheredge.workload: "garuda"
+      aetheredge.component: "alert-api"
+      aetheredge.version: "1.0.0"
+
+  # ── Detector — Camera 01 ──
+  detector-cam-01:
+    image: monicapopuri/garuda-detector:latest
+    container_name: garuda-detector-cam-01
+    restart: unless-stopped
+    depends_on:
+      alert-api:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      CAM_ID: "cam-01"
+      # For live CCTV set to rtsp://user:pass@ip:port/channel/1
+      # For file-based test set to /data/test.mp4
+      CAM_RTSP_URL: "${CAM_01_RTSP_URL:-/data/test.mp4}"
+      SPEED_LIMIT_KMH: "${SPEED_LIMIT_KMH:-20}"
+      CALIBRATION_METRES: "${CAM_01_CALIBRATION_METRES:-8.0}"
+      LINE_A_Y_RATIO: "${CAM_01_LINE_A_Y_RATIO:-0.35}"
+      LINE_B_Y_RATIO: "${CAM_01_LINE_B_Y_RATIO:-0.65}"
+      ALERT_API_URL: "http://alert-api:8090/api/v1/alert"
+    volumes:
+      - garuda-data:/data
+    labels:
+      aetheredge.workload: "garuda"
+      aetheredge.component: "detector"
+      aetheredge.version: "1.0.0"
+
+  # ── Add more cameras by duplicating the block below ──
+  # detector-cam-02:
+  #   image: monicapopuri/garuda-detector:latest
+  #   container_name: garuda-detector-cam-02
+  #   restart: unless-stopped
+  #   depends_on:
+  #     alert-api:
+  #       condition: service_healthy
+  #   env_file:
+  #     - .env
+  #   environment:
+  #     CAM_ID: "cam-02"
+  #     CAM_RTSP_URL: "${CAM_02_RTSP_URL}"
+  #     SPEED_LIMIT_KMH: "${SPEED_LIMIT_KMH:-20}"
+  #     CALIBRATION_METRES: "${CAM_02_CALIBRATION_METRES:-8.0}"
+  #     LINE_A_Y_RATIO: "${CAM_02_LINE_A_Y_RATIO:-0.35}"
+  #     LINE_B_Y_RATIO: "${CAM_02_LINE_B_Y_RATIO:-0.65}"
+  #     ALERT_API_URL: "http://alert-api:8090/api/v1/alert"
+  #   volumes:
+  #     - garuda-data:/data
+
+volumes:
+  garuda-data:
+    driver: local

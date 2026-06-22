@@ -1,0 +1,16 @@
+.env
+data/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.DS_Store
+detector/models/*.pt
+detector/models/*.onnx
+*.pt
+*.onnx
+test_video.mp4
+.env.test
+.vscode/
+.claude/
+detector/@CLAUDE_CODE_CONTEXT.md

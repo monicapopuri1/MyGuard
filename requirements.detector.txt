@@ -1,0 +1,6 @@
+ultralytics==8.3.40
+lapx==0.9.4
+opencv-python-headless==4.10.0.84
+easyocr==1.7.2
+numpy==1.26.4
+requests==2.32.3

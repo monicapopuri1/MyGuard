@@ -1,0 +1,36 @@
+version: "3.8"
+
+# ─────────────────────────────────────────────────────────────
+#  GARUDA — Local test override
+#
+#  Merged on top of garuda.yml for local smoke testing only:
+#    docker compose -f garuda.yml -f docker-compose.test.yml ...
+#
+#  • Builds images from local source (Dockerfile.detector /
+#    Dockerfile.alert) instead of pulling monicapopuri/garuda-*
+#    from Docker Hub, so the test exercises this commit's code.
+#  • Mounts test_video.mp4 into the detector container at the
+#    path CAM_01_RTSP_URL points to in .env.test.
+#
+#  Not used in production deploys — garuda.yml alone (with the
+#  published images) is what AetherEdge ships to nodes.
+# ─────────────────────────────────────────────────────────────
+
+services:
+  alert-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.alert
+    image: garuda-alert:test
+    env_file: !override
+      - .env.test
+
+  detector-cam-01:
+    build:
+      context: .
+      dockerfile: Dockerfile.detector
+    image: garuda-detector:test
+    env_file: !override
+      - .env.test
+    volumes:
+      - ./test_video.mp4:/data/test_video.mp4:ro
