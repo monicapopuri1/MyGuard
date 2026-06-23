@@ -2,7 +2,7 @@ import uuid
 import logging
 from datetime import datetime, timezone
 
-from sqlalchemy import create_engine, Column, String, Float, DateTime, text
+from sqlalchemy import create_engine, Column, String, Float, Boolean, DateTime, text
 from sqlalchemy.orm import DeclarativeBase, Session
 
 log = logging.getLogger("store")
@@ -21,6 +21,7 @@ class Incident(Base):
     plate = Column(String, nullable=False)
     timestamp = Column(String, nullable=False)
     clip_path = Column(String, default="")
+    wrong_way = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
@@ -30,7 +31,15 @@ class IncidentStore:
         Base.metadata.create_all(self._engine)
         log.info("Incident store ready: %s", db_path)
 
-    def save(self, camera_id: str, speed_kmh: float, plate: str, timestamp: str, clip_path: str = "") -> str:
+    def save(
+        self,
+        camera_id: str,
+        speed_kmh: float,
+        plate: str,
+        timestamp: str,
+        clip_path: str = "",
+        wrong_way: bool = False,
+    ) -> str:
         incident_id = str(uuid.uuid4())
         with Session(self._engine) as session:
             session.add(Incident(
@@ -40,22 +49,24 @@ class IncidentStore:
                 plate=plate,
                 timestamp=timestamp,
                 clip_path=clip_path,
+                wrong_way=wrong_way,
             ))
             session.commit()
-        log.info("Incident stored: %s | plate=%s speed=%.1f", incident_id, plate, speed_kmh)
+        log.info("Incident stored: %s | plate=%s speed=%.1f wrong_way=%s", incident_id, plate, speed_kmh, wrong_way)
         return incident_id
 
     def recent(self, limit: int = 50) -> list[dict]:
         with Session(self._engine) as session:
             rows = session.execute(
-                text("SELECT id, camera_id, speed_kmh, plate, timestamp, clip_path, created_at "
+                text("SELECT id, camera_id, speed_kmh, plate, timestamp, clip_path, wrong_way, created_at "
                      "FROM incidents ORDER BY created_at DESC LIMIT :lim"),
                 {"lim": limit},
             ).fetchall()
         return [
             {
                 "id": r[0], "camera_id": r[1], "speed_kmh": r[2],
-                "plate": r[3], "timestamp": r[4], "clip_path": r[5], "created_at": str(r[6]),
+                "plate": r[3], "timestamp": r[4], "clip_path": r[5],
+                "wrong_way": bool(r[6]), "created_at": str(r[7]),
             }
             for r in rows
         ]

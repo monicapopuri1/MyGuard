@@ -32,6 +32,7 @@ class AlertPayload(BaseModel):
     timestamp: str
     snapshot_b64: str = ""
     clip_path: str = ""
+    wrong_way: bool = False
 
 
 @app.get("/health")
@@ -41,10 +42,14 @@ def health():
 
 @app.post("/api/v1/alert", status_code=202)
 def receive_alert(payload: AlertPayload):
-    log.info("Alert received | cam=%s plate=%s speed=%.1f", payload.camera_id, payload.plate, payload.speed_kmh)
+    alert_kind = "wrong_way" if payload.wrong_way else "speeding"
+    log.info(
+        "Alert received | cam=%s plate=%s speed=%.1f kind=%s",
+        payload.camera_id, payload.plate, payload.speed_kmh, alert_kind,
+    )
 
-    if _dedup.is_duplicate(payload.plate, payload.camera_id):
-        log.info("Suppressed duplicate alert for plate=%s", payload.plate)
+    if _dedup.is_duplicate(payload.plate, payload.camera_id, alert_kind):
+        log.info("Suppressed duplicate %s alert for plate=%s", alert_kind, payload.plate)
         return {"status": "suppressed", "reason": "dedup_window"}
 
     incident_id = _store.save(
@@ -53,6 +58,7 @@ def receive_alert(payload: AlertPayload):
         plate=payload.plate,
         timestamp=payload.timestamp,
         clip_path=payload.clip_path,
+        wrong_way=payload.wrong_way,
     )
 
     if payload.snapshot_b64:
@@ -65,7 +71,7 @@ def receive_alert(payload: AlertPayload):
         log.error("WhatsApp send failed: %s", exc)
         # Don't raise — incident is already stored; alert can be resent manually.
 
-    _dedup.record(payload.plate, payload.camera_id)
+    _dedup.record(payload.plate, payload.camera_id, alert_kind)
     return {"status": "accepted", "incident_id": incident_id}
 
 
@@ -80,6 +86,15 @@ def _build_message(p: AlertPayload) -> str:
         formatted_time = dt.strftime("%d %b %Y, %H:%M:%S")
     except Exception:
         formatted_time = p.timestamp
+
+    if p.wrong_way:
+        return (
+            f"🚨 *WRONG WAY VEHICLE — {_society}*\n"
+            f"Camera    : {p.camera_id}\n"
+            f"Time      : {formatted_time}\n"
+            f"Direction : Entering wrong way\n"
+            f"_Powered by Garuda / AetherEdge_"
+        )
 
     return (
         f"🚨 *SPEEDING ALERT — {_society}*\n"

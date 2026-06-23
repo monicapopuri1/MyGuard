@@ -98,15 +98,21 @@ class DetectionPipeline:
                 cx = (x1 + x2) // 2
                 cy = (y1 + y2) // 2
 
-                speed = self._sensor.update(vid, cx, cy)
-                if speed is None:
+                event = self._sensor.update(vid, cx, cy)
+                if event is None:
                     continue
 
-                if speed <= self.speed_limit_kmh:
-                    log.debug("Vehicle %d within limit: %.1f km/h", vid, speed)
+                # Wrong-way alerts fire regardless of speed; speeding alerts still
+                # need to clear the configured limit.
+                if not event.wrong_way and event.speed_kmh <= self.speed_limit_kmh:
+                    log.debug("Vehicle %d within limit: %.1f km/h", vid, event.speed_kmh)
                     continue
 
-                log.warning("OVERSPEED: vehicle=%d speed=%.1f km/h cam=%s", vid, speed, self.cam_id)
+                speed = event.speed_kmh
+                if event.wrong_way:
+                    log.warning("WRONG WAY: vehicle=%d cam=%s (~%.1f km/h)", vid, self.cam_id, speed)
+                else:
+                    log.warning("OVERSPEED: vehicle=%d speed=%.1f km/h cam=%s", vid, speed, self.cam_id)
 
                 # Crop vehicle for ANPR
                 px1 = max(0, x1 - _CROP_PAD)
@@ -127,7 +133,7 @@ class DetectionPipeline:
                         clip_path = ""
 
                 try:
-                    self._post_alert(speed, plate_text, snapshot_b64, clip_path)
+                    self._post_alert(speed, plate_text, snapshot_b64, clip_path, wrong_way=event.wrong_way)
                 except Exception:
                     log.exception("Alert POST raised unexpectedly for vehicle=%d cam=%s — continuing", vid, self.cam_id)
 
@@ -148,7 +154,7 @@ class DetectionPipeline:
         log.info("Clip saved: %s", path)
         return path
 
-    def _post_alert(self, speed: float, plate: str, snapshot_b64: str, clip_path: str):
+    def _post_alert(self, speed: float, plate: str, snapshot_b64: str, clip_path: str, wrong_way: bool = False):
         payload = {
             "camera_id": self.cam_id,
             "speed_kmh": round(speed, 1),
@@ -156,6 +162,7 @@ class DetectionPipeline:
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "snapshot_b64": snapshot_b64,
             "clip_path": clip_path,
+            "wrong_way": wrong_way,
         }
         for attempt in range(_ALERT_MAX_RETRIES):
             try:
