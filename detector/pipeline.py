@@ -55,7 +55,8 @@ class DetectionPipeline:
         # Downloads yolov8n.pt on first run (~6 MB); replace with a local path if offline.
         self._yolo = YOLO("yolov8n.pt")
 
-        self._anpr = ANPRReader(lp_model_path="yolov8n.pt")  # swap for LP-specific model later
+        # swap for LP-specific model later
+        self._anpr = ANPRReader(lp_model_path="yolov8n.pt")
         self._sensor: SpeedSensor | None = None
         self._line_a_ratio = line_a_ratio
         self._line_b_ratio = line_b_ratio
@@ -105,14 +106,17 @@ class DetectionPipeline:
                 # Wrong-way alerts fire regardless of speed; speeding alerts still
                 # need to clear the configured limit.
                 if not event.wrong_way and event.speed_kmh <= self.speed_limit_kmh:
-                    log.debug("Vehicle %d within limit: %.1f km/h", vid, event.speed_kmh)
+                    log.debug("Vehicle %d within limit: %.1f km/h",
+                              vid, event.speed_kmh)
                     continue
 
                 speed = event.speed_kmh
                 if event.wrong_way:
-                    log.warning("WRONG WAY: vehicle=%d cam=%s (~%.1f km/h)", vid, self.cam_id, speed)
+                    log.warning(
+                        "WRONG WAY: vehicle=%d cam=%s (~%.1f km/h)", vid, self.cam_id, speed)
                 else:
-                    log.warning("OVERSPEED: vehicle=%d speed=%.1f km/h cam=%s", vid, speed, self.cam_id)
+                    log.warning(
+                        "OVERSPEED: vehicle=%d speed=%.1f km/h cam=%s", vid, speed, self.cam_id)
 
                 # Crop vehicle for ANPR
                 px1 = max(0, x1 - _CROP_PAD)
@@ -120,7 +124,8 @@ class DetectionPipeline:
                 px2 = min(w, x2 + _CROP_PAD)
                 py2 = min(h, y2 + _CROP_PAD)
                 vehicle_crop = frame[py1:py2, px1:px2]
-                plate_text = self._anpr.read(vehicle_crop) if vehicle_crop.size > 0 else ""
+                plate_text = self._anpr.read(
+                    vehicle_crop) if vehicle_crop.size > 0 else ""
 
                 snapshot_b64 = _encode_snapshot(frame)
 
@@ -129,13 +134,16 @@ class DetectionPipeline:
                     try:
                         clip_path = self._save_clip(fps)
                     except Exception:
-                        log.exception("Clip save failed for vehicle=%d cam=%s — continuing without clip", vid, self.cam_id)
+                        log.exception(
+                            "Clip save failed for vehicle=%d cam=%s — continuing without clip", vid, self.cam_id)
                         clip_path = ""
 
                 try:
-                    self._post_alert(speed, plate_text, snapshot_b64, clip_path, wrong_way=event.wrong_way)
+                    self._post_alert(speed, plate_text, snapshot_b64,
+                                     clip_path, wrong_way=event.wrong_way)
                 except Exception:
-                    log.exception("Alert POST raised unexpectedly for vehicle=%d cam=%s — continuing", vid, self.cam_id)
+                    log.exception(
+                        "Alert POST raised unexpectedly for vehicle=%d cam=%s — continuing", vid, self.cam_id)
 
     def _save_clip(self, fps: float) -> str:
         ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -147,7 +155,8 @@ class DetectionPipeline:
             return ""
 
         h, w = self._clip_buffer[0].shape[:2]
-        out = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
+        out = cv2.VideoWriter(
+            path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
         for f in self._clip_buffer:
             out.write(f)
         out.release()
@@ -166,12 +175,14 @@ class DetectionPipeline:
         }
         for attempt in range(_ALERT_MAX_RETRIES):
             try:
-                resp = requests.post(self.alert_api_url, json=payload, timeout=5)
+                resp = requests.post(self.alert_api_url,
+                                     json=payload, timeout=5)
                 resp.raise_for_status()
                 log.info("Alert posted | plate=%s speed=%.1f", plate, speed)
                 return
             except requests.RequestException as exc:
-                log.error("Alert POST failed (attempt %d): %s", attempt + 1, exc)
+                log.error("Alert POST failed (attempt %d): %s",
+                          attempt + 1, exc)
                 if attempt < _ALERT_MAX_RETRIES - 1:
                     time.sleep(_ALERT_RETRY_S)
 
